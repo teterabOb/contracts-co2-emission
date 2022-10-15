@@ -4,6 +4,9 @@ import "./Co2Consumer.sol";
 
 contract Airline {
     
+    string private s_airlineName;
+    Co2Consumer consumer;
+    
     constructor() {
 
     }

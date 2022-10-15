@@ -6,7 +6,6 @@ import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-
 contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
     using Chainlink for Chainlink.Request;    
     using Counters for Counters.Counter;
@@ -49,7 +48,7 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
         string memory _to,
         uint _passengers,
         string memory _classFlight
-    ) external  returns (bytes32 requestId) {
+    ) external isAllowed(msg.sender) returns (bytes32 requestId) {
         require(_passengers <= 555, "Max num of passengers is 555");
         Chainlink.Request memory req = buildChainlinkRequest(jobId,address(this),this.fulfill.selector);
         string memory _strPassengers = Strings.toString(_passengers);
