@@ -2,8 +2,7 @@
 
 ...
 
-# Addresses
-
+# Information
 
 Chainlink Token Address - Goerli
 ```shell
