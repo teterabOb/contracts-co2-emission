@@ -1,22 +1,23 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.7;
-import "./Co2Consumer.sol";
+
+import "./interface/ICo2Consumer.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Airline is Ownable {
-    
     string private s_name;
-    Co2Consumer consumer;
-    
+    ICo2Consumer consumer;
+
     constructor(address _consumer) {
-        consumer = Co2Consumer(_consumer);
+        consumer = ICo2Consumer(_consumer);
     }
 
-    function requestEmission(                
+    function requestEmission(
         string memory _from,
         string memory _to,
-        uint _passengers,
-        string memory _classFlight) external onlyOwner{
+        uint256 _passengers,
+        string memory _classFlight
+    ) external onlyOwner {
         consumer.requestCo2Emission(
             address(this),
             _from,
@@ -26,10 +27,19 @@ contract Airline is Ownable {
         );
     }
 
-    function getName() public view returns(string memory){
-        return s_name;
+    function getLastRequest()
+        public
+        view
+        returns (
+            uint ctrRAirline,
+            address airlineContract,
+            uint256 roundId,
+            uint256 co2Amount,
+            uint256 startedAt,
+            uint256 finishedAt,
+            bytes32 requestId
+        )
+    {
+        return consumer.getLastEmissionByAirline(address(this));
     }
-
-     
-
 }
