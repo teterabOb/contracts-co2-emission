@@ -15,6 +15,7 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
     uint256 private fee;
 
     struct Co2Emission {
+        address ctrRAirline;
         address airlineContract;
         uint256 roundId;
         uint256 co2Amount;
@@ -23,9 +24,11 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
         bytes32 requestId;
     }
     // ID Airline  -> (ID Record -> Co2Emission)
-    mapping(uint256 => Co2Emission) s_EmissionHistory;
-    mapping(address => bool) s_contracts;
-    mapping(address => bool) s_contractsAllowedToCall;
+    mapping(uint256 => Co2Emission) private s_emissionHistory;
+    mapping(address => Co2Emission) private s_lastEmissionByAirline;
+    mapping(address => mapping(uint => Co2Emission)) private s_emissionByAirline;
+    mapping(address => bool) private s_contracts;
+    mapping(address => bool) private s_contractsAllowedToCall;
 
     event RequestCo2Emission(Co2Emission indexed co2Emission);
     event ContractAdded(address indexed airlineAddress);
@@ -36,10 +39,6 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
         setChainlinkOracle(0x5CeD5FE184f6504DFF3Ce899392f8019f4F580f6);
         jobId = "5b11b78a00bc4151b44909421c04524e"; // insert right jobID
         fee = (1 * LINK_DIVISIBILITY) / 10;    
-    }
-
-    function updateJobID(bytes32 _jobId) public onlyOwner{
-        jobId = _jobId;        
     }
 
     function requestCo2Emission(
@@ -54,9 +53,14 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
         string memory _strPassengers = Strings.toString(_passengers);
         s_roundID.increment();
         uint256 currentId = s_roundID.current();
+
+        Co2Emission lastEmission = s_lastEmissionByAirline[_airlineContract];
+        uint auxCtrRAirline = lastEmission.ctrRAirline;
+
         Co2Emission memory _co2 = 
             Co2Emission(
-                _airlineContract // airline contract
+                auxCtrRAirline++;// counter request by airline
+                ,_airlineContract // airline contract
                 , currentId // current round id
                 , 0 // co2 amount received in fallback function
                 , block.timestamp // when round starts
@@ -69,21 +73,30 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
         req.add("passengers", _strPassengers);
         req.add("classFlight", _classFlight);
 
-        s_EmissionHistory[currentId] = _co2;
+        s_emissionHistory[currentId] = _co2;
         return sendChainlinkRequest(req, fee);
     }
 
 
     function fulfill(bytes32 _requestId, uint256 _co2e) public recordChainlinkFulfillment(_requestId){        
         uint256 currentId = s_roundID.current();
-        Co2Emission memory _auxCo2 = s_EmissionHistory[currentId];
+        Co2Emission memory _auxCo2 = s_emissionHistory[currentId];
         require(_auxCo2.finishedAt == 0 && _auxCo2.requestId == 0, "Error fulfill");
+        address airlineContract = _auxCo2.airlineContract;
         _auxCo2.co2Amount = _co2e;
         _auxCo2.requestId = _requestId;
-        _auxCo2.finishedAt = block.timestamp;
-        s_EmissionHistory[currentId] = _auxCo2;
+        _auxCo2.finishedAt = block.timestamp;        
+        s_emissionHistory[currentId] = _auxCo2;
+        s_emissionByAirline[airlineContract][_auxCo2.ctrRAirline++];
         emit RequestCo2Emission(_auxCo2);
     }
+
+    /*
+    function getLastRequestByAirline(address _airlineContract) external view returns(Co2Emission memory){
+        require(_airlineContract != address(0), "NO zero address");
+        return s_lastEmissionByAirline[_airlineContract];
+    }
+    */
 
     function withdrawLink() public onlyOwner {
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
@@ -104,6 +117,10 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
         emit ContractEnabled(_address);
     }
 
+    // ** Setter ** //
+    function updateJobID(bytes32 _jobId) public onlyOwner{
+        jobId = _jobId;        
+    }
     // ** Internal Functions ** //
     function _enableContract(address _address) internal {
         require(_airlineExists(_address), "Address not exists");
@@ -129,15 +146,4 @@ contract Co2Consumer is ChainlinkClient, ConfirmedOwner {
         _;
     } 
 
-    function stringToUint(string memory s) internal pure returns (uint) {
-        bytes memory b = bytes(s);
-        uint result = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            uint256 c = uint256(uint8(b[i]));
-            if (c >= 48 && c <= 57) {
-                result = result * 10 + (c - 48);
-            }
-        }
-        return result;
-    }
 }
